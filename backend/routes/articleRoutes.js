@@ -1,0 +1,130 @@
+const express = require('express');
+const router = express.Router();
+const Article = require('../models/articleModel');
+
+
+// Get all articles
+router.get('/', async (req, res) => {
+  try {
+    const articles = await Article.find().sort({ date: -1 });
+    res.json(articles);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Get article by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const article = await Article.findOne({ articleid: req.params.id });
+    if (!article) return res.status(404).json({ msg: 'Article not found' });
+    res.json(article);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Create new article (protected route)
+router.post('/', async (req, res) => {
+  try {
+    const {
+      articleid,
+      title,
+      subtitle,
+      images,
+      subtopics,
+      subcontent,
+      author,
+      designation,
+      keywords
+    } = req.body;
+    
+    // Check if article with same ID already exists
+    let article = await Article.findOne({ articleid });
+    if (article) {
+      return res.status(400).json({ msg: 'Article with this ID already exists' });
+    }
+    
+    // Create new article instance
+    article = new Article({
+      articleid,
+      title,
+      subtitle,
+      images,
+      subtopics,
+      subcontent,
+      author,
+      designation,
+      keywords
+    });
+    
+    await article.save();
+    res.json(article);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Update article (protected route)
+router.put('/:id',  async (req, res) => {
+  try {
+    const {
+      title,
+      subtitle,
+      images,
+      subtopics,
+      subcontent,
+      author,
+      designation,
+      keywords
+    } = req.body;
+    
+    // Build article object with updated fields
+    const articleFields = {};
+    if (title) articleFields.title = title;
+    if (subtitle) articleFields.subtitle = subtitle;
+    if (images) articleFields.images = images;
+    if (subtopics) articleFields.subtopics = subtopics;
+    if (subcontent) articleFields.subcontent = subcontent;
+    if (author) articleFields.author = author;
+    if (designation) articleFields.designation = designation;
+    if (keywords) articleFields.keywords = keywords;
+    
+    // Find and update article
+    let article = await Article.findOne({ articleid: req.params.id });
+    if (!article) return res.status(404).json({ msg: 'Article not found' });
+    
+    article = await Article.findOneAndUpdate(
+      { articleid: req.params.id },
+      { $set: articleFields },
+      { new: true }
+    );
+    
+    res.json(article);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Delete article (protected route)
+router.delete('/:id', async (req, res) => {
+  try {
+    // Find article by ID
+    let article = await Article.findOne({ articleid: req.params.id });
+    if (!article) return res.status(404).json({ msg: 'Article not found' });
+    
+    // Delete article
+    await Article.findOneAndRemove({ articleid: req.params.id });
+    
+    res.json({ msg: 'Article removed' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+module.exports = router;
