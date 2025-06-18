@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,56 +30,84 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 interface Article {
-  id: string;
+  articleid: string;
   title: string;
+  subtitle: string;
+  content: string;
+  author: string;
+  publishedDate: string;
+  status: 'published' | 'draft';
   category: string;
-  date: string;
-  status: "published" | "draft" | "archived";
-  views: number;
+  date: string; // Added for compatibility with existing code
+  views: number; // Added for view count
 }
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [articles, setArticles] = useState<Article[]>([
-    {
-      id: "1",
-      title: "Getting Started with Modern Web Development",
-      category: "Technology",
-      date: "2024-06-10",
-      status: "published",
-      views: 1234
-    },
-    {
-      id: "2",
-      title: "The Future of AI in Content Creation",
-      category: "AI",
-      date: "2024-06-08",
-      status: "published",
-      views: 856
-    },
-    {
-      id: "3",
-      title: "Building Responsive Layouts with CSS Grid",
-      category: "Design",
-      date: "2024-06-05",
-      status: "draft",
-      views: 0
-    },
-    {
-      id: "4",
-      title: "Understanding React Hooks in Depth",
-      category: "Technology",
-      date: "2024-06-03",
-      status: "published",
-      views: 642
-    }
-  ]);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  //fetching articles
+    // Fetch articles from backend
+    const fetchArticles = async () => {
+      console.log('Fetching articles...'); // Debug log
+      setLoading(true);
+      try {
+        // Use a try-catch block for the API call to handle connection issues
+        const apiUrl = '/api/articles';
+        console.log(`Calling API endpoint: ${apiUrl}`);
+        
+        // Add timeout to prevent hanging requests
+        const response = await axios.get(apiUrl, { 
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+        
+        console.log('API response received:', response.data);
+        setArticles(response.data);
+        setError(null);
+      } catch (err: any) {
+        console.error('Error fetching articles:', err);
+        // More descriptive error message including the error details
+        setError(`Failed to fetch articles: ${err.message || 'Unknown error'}`);
+        
+        console.log('Using mock data as fallback');
+        // Use mock data for demonstration if API fails
+        setArticles([
+          {
+            articleid: "1",
+            title: "Sample Article",
+            subtitle: "This is a sample article",
+            content: "Sample content",
+            author: "Admin",
+            publishedDate: "2023-08-15",
+            status: "published",
+            category: "Technology",
+            date: "2023-08-15",
+            views: 120
+          }
+        ]);
+      } finally {
+        setLoading(false);
+        console.log('Fetch articles completed');
+      }
+    };
+
+  // Call fetchArticles when component mounts
+  useEffect(() => {
+    fetchArticles();
+  }, []);
 
   const handleDeleteArticle = (id: string) => {
-    setArticles(articles.filter(article => article.id !== id));
+    setArticles(articles.filter(article => article.articleid !== id));
     toast({
       title: "Article deleted",
       description: "The article has been successfully deleted.",
@@ -121,7 +148,7 @@ const Dashboard = () => {
     },
     {
       title: "Total Views",
-      value: articles.reduce((sum, a) => sum + a.views, 0).toLocaleString(),
+      value: articles.reduce((sum, a) => sum + (a.views || 0), 0).toLocaleString(),
       icon: Users,
       change: "+23%",
       changeType: "positive" as const
@@ -136,37 +163,37 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in p-4 sm:p-6 lg:p-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in p-3 sm:p-4 md:p-6 lg:p-8">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 sm:mt-2">
             Welcome back! Here's what's happening with your content.
           </p>
         </div>
         <Button 
           onClick={() => navigate("/add-article")}
-          className="admin-button-primary flex items-center gap-2 w-full sm:w-auto"
+          className="admin-button-primary flex items-center gap-2 w-full sm:w-auto h-9 sm:h-10"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
           Add Article
         </Button>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         {stats.map((stat, index) => (
-          <Card key={index} className="admin-card hover:scale-105 transition-transform duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card key={index} className="admin-card hover:scale-102 sm:hover:scale-105 transition-transform duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 {stat.title}
               </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
+              <stat.icon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
+            <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">{stat.value}</div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 <span className={`${stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'}`}>
                   {stat.change}
                 </span>
@@ -179,47 +206,47 @@ const Dashboard = () => {
 
       {/* Recent Articles */}
       <Card className="admin-card">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <CardHeader className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2 sm:pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             <div>
-              <CardTitle className="text-lg sm:text-xl">Recent Articles</CardTitle>
-              <CardDescription className="text-sm">
+              <CardTitle className="text-base sm:text-lg md:text-xl">Recent Articles</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Manage and monitor your published content
               </CardDescription>
             </div>
             <Button 
               variant="outline" 
               onClick={() => navigate("/add-article")}
-              className="flex items-center gap-2 w-full sm:w-auto"
+              className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto h-8 sm:h-10 text-xs sm:text-sm"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
               New Article
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2 sm:px-4 py-2 sm:py-3">
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[200px]">Title</TableHead>
-                  <TableHead className="hidden sm:table-cell">Category</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden md:table-cell">Date</TableHead>
-                  <TableHead className="hidden lg:table-cell">Views</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="min-w-[120px] sm:min-w-[200px] py-2 px-2 sm:px-4 text-xs sm:text-sm">Title</TableHead>
+                  <TableHead className="hidden sm:table-cell text-xs sm:text-sm">Category</TableHead>
+                  <TableHead className="py-2 px-2 sm:px-4 text-xs sm:text-sm">Status</TableHead>
+                  <TableHead className="hidden md:table-cell text-xs sm:text-sm">Date</TableHead>
+                  <TableHead className="hidden lg:table-cell text-xs sm:text-sm">Views</TableHead>
+                  <TableHead className="w-[40px] sm:w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {articles.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-3">
-                        <FileText className="w-8 h-8 text-muted-foreground" />
-                        <p className="text-muted-foreground">No articles found</p>
+                    <TableCell colSpan={6} className="text-center py-6 sm:py-8">
+                      <div className="flex flex-col items-center gap-2 sm:gap-3">
+                        <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+                        <p className="text-xs sm:text-sm text-muted-foreground">No articles found</p>
                         <Button 
                           onClick={() => navigate("/add-article")}
-                          className="admin-button-primary"
+                          className="admin-button-primary text-xs sm:text-sm h-8 sm:h-10"
                         >
                           Create your first article
                         </Button>
@@ -228,44 +255,46 @@ const Dashboard = () => {
                   </TableRow>
                 ) : (
                   articles.map((article) => (
-                    <TableRow key={article.id} className="hover:bg-muted/50">
-                      <TableCell className="font-medium">
-                        <div className="max-w-[200px] truncate">
+                    <TableRow key={article.articleid} className="hover:bg-muted/50">
+                      <TableCell className="font-medium py-2 px-2 sm:px-4">
+                        <div className="max-w-[150px] sm:max-w-[200px] truncate text-xs sm:text-sm">
                           {article.title}
                         </div>
-                        <div className="sm:hidden text-xs text-muted-foreground mt-1">
+                        <div className="sm:hidden text-[10px] text-muted-foreground mt-1">
                           {article.category} • {new Date(article.date).toLocaleDateString()}
                         </div>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell">{article.category}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(article.status)}>
-                          {article.status}
+                      <TableCell className="hidden sm:table-cell text-xs sm:text-sm">{article.author}</TableCell>
+                      <TableCell className="py-2 px-2 sm:px-4">
+                        <Badge className={`${getStatusColor(article.status)} text-[10px] sm:text-xs py-0.5 px-1.5 sm:px-2`}>
+                          {article.subtitle}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell className="hidden md:table-cell text-xs sm:text-sm">
                         {new Date(article.date).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">{article.views.toLocaleString()}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs sm:text-sm">
+                        {(article.views || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="p-0 sm:p-1">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
+                            <Button variant="ghost" className="h-6 w-6 sm:h-8 sm:w-8 p-0">
+                              <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="text-xs sm:text-sm">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleEditArticle(article.id)}>
-                              <Edit className="mr-2 h-4 w-4" />
+                            <DropdownMenuItem onClick={() => handleEditArticle(article.articleid)}>
+                              <Edit className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
-                              onClick={() => handleDeleteArticle(article.id)}
+                              onClick={() => handleDeleteArticle(article.articleid)}
                               className="text-destructive"
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
+                              <Trash2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>

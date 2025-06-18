@@ -28,8 +28,11 @@ interface AdminLayoutProps {
   children: ReactNode;
 }
 
+//import image
+import logo from "@/assets/logo512.png";
+
 const AdminLayout = ({ children }: AdminLayoutProps) => {
-  const { isAuthenticated, setIsAuthenticated, user, setUser } = useAuth();
+  const { isAuthenticated, setIsAuthenticated, user, setUser, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
@@ -56,10 +59,28 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setUser(null);
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      // Call the logout function from auth context
+      await logout();
+      
+      // Clear any localStorage items
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      
+      // Clear authentication state
+      setIsAuthenticated(false);
+      setUser(null);
+      
+      // Redirect to login
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Still clear local state even if API call fails
+      setIsAuthenticated(false);
+      setUser(null);
+      navigate("/login", { replace: true });
+    }
   };
 
   const navigationItems = [
@@ -115,7 +136,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <FileText className="w-4 h-4 text-primary-foreground" />
+              <img src={logo} alt="Logo" className="w-6 h-6" />
             </div>
             {!sidebarCollapsed && (
               <div>
@@ -162,7 +183,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   <div className="p-6 border-b border-border">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                        <FileText className="w-4 h-4 text-primary-foreground" />
+                        <img src={logo} alt="Logo" className="w-6 h-6" />
                       </div>
                       <div>
                         <h1 className="font-bold text-lg text-foreground">SensGrid</h1>

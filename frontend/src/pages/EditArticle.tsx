@@ -47,7 +47,8 @@ const saveArticle = async (articleData: CreateArticleDTO, articleId?: string): P
     
     if (articleId) {
       // Update existing article
-      console.log("Updating article data:", articleData);
+      console.log("Updating article data for ID:", articleId);
+      console.log("Update payload:", articleData);
       result = await updateArticle(articleId, articleData);
     } else {
       // Create new article
@@ -55,9 +56,14 @@ const saveArticle = async (articleData: CreateArticleDTO, articleId?: string): P
       result = await createArticle(articleData);
     }
     
+    console.log("API response from save operation:", result);
     return result;
   } catch (error) {
     console.error('Error saving article:', error);
+    // Log more detailed error information
+    if ((error as any).response) {
+      console.error('Server response:', (error as any).response.data);
+    }
     throw error;
   }
 };
@@ -92,17 +98,29 @@ const EditArticle = () => {
       
       console.log(`EditArticle: Loading article with ID ${articleId}`);
       
+      // Add timeout to abort fetch after 20 seconds
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      
       getArticleById(articleId)
         .then(article => {
+          clearTimeout(timeoutId);
           console.log("Article data received:", article);
           
-          // Set form data with proper defaults for all fields
+          // Handle potential data structure differences
+          if (!article) {
+            throw new Error('No article data returned from the server');
+          }
+          
+          // Set form data with proper defaults for all fields and handle potential missing properties
           setFormData({
             title: article.title || "",
             subtitle: article.subtitle || "",
             images: Array.isArray(article.images) ? article.images : [],
-            subtopics: Array.isArray(article.subtopics) ? article.subtopics : [],
-            subcontent: Array.isArray(article.subcontent) ? article.subcontent : [],
+            subtopics: Array.isArray(article.subtopics) ? article.subtopics : 
+                      (article.content ? [article.content] : []),  // Fallback to content field if subtopics missing
+            subcontent: Array.isArray(article.subcontent) ? article.subcontent : 
+                       (article.content ? [article.content] : []), // Fallback to content field if subcontent missing
             author: article.author || user?.name || "",
             designation: article.designation || "",
             keywords: Array.isArray(article.keywords) ? article.keywords : [],
@@ -111,14 +129,24 @@ const EditArticle = () => {
           setIsFetchingArticle(false);
         })
         .catch(err => {
+          clearTimeout(timeoutId);
           console.error("Article fetch error details:", err);
-          let errorMessage = `Failed to load article: ${err.message || 'Unknown error'}`;
           
+          let errorMessage = `Failed to load article: ${err.message || 'Unknown error'}`;
+          if (err.name === 'AbortError') {
+            errorMessage = 'Request took too long to complete and was aborted. Please try again.';
+          }
+          
+          // Show error message to user
           toast({
             variant: "destructive",
             title: "Error Loading Article",
             description: errorMessage,
           });
+          
+          // Optional: Navigate back to articles list when fetching fails
+          // navigate('/dashboard', { replace: true });
+          
           setIsFetchingArticle(false);
         });
     }
@@ -290,22 +318,22 @@ const EditArticle = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 animate-fade-in p-4 sm:p-6 lg:p-8">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 animate-fade-in p-3 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
         <Button
           variant="ghost"
           onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2 w-fit"
+          className="flex items-center gap-2 w-fit h-9 sm:h-10"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
+          <span className="text-sm sm:text-base">Back to Dashboard</span>
         </Button>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">
             {isEditMode ? "Edit Article" : "Add New Article"}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             {isEditMode ? "Update your existing content" : "Create and publish your content"}
           </p>
         </div>
@@ -320,68 +348,69 @@ const EditArticle = () => {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-              <Card className="admin-card">
+            <div className="lg:col-span-2 space-y-3 sm:space-y-6">
+              {/* Article Details Card */}
+              <Card className="admin-card shadow-sm">
                 <CardHeader className="px-4 sm:px-6">
                   <CardTitle className="text-lg sm:text-xl">Article Details</CardTitle>
                   <CardDescription className="text-sm">
                     Enter the main information for your article
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4 px-4 sm:px-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="title" className="text-sm font-medium">Title *</Label>
+                <CardContent className="space-y-3 sm:space-y-4 px-3 sm:px-6 py-3 sm:py-4">
+                  <div className="space-y-1 sm:space-y-2">
+                    <Label htmlFor="title" className="text-xs sm:text-sm font-medium">Title *</Label>
                     <Input
                       id="title"
                       placeholder="Enter article title"
                       value={formData.title}
                       onChange={(e) => handleInputChange("title", e.target.value)}
-                      className="admin-input h-10 sm:h-11"
+                      className="admin-input h-9 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="subtitle" className="text-sm font-medium">Subtitle *</Label>
+                  <div className="space-y-1 sm:space-y-2">
+                    <Label htmlFor="subtitle" className="text-xs sm:text-sm font-medium">Subtitle *</Label>
                     <Input
                       id="subtitle"
                       placeholder="Enter article subtitle"
                       value={formData.subtitle}
                       onChange={(e) => handleInputChange("subtitle", e.target.value)}
-                      className="admin-input h-10 sm:h-11"
+                      className="admin-input h-9 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="author" className="text-sm font-medium">Author *</Label>
+                  <div className="space-y-1 sm:space-y-2">
+                    <Label htmlFor="author" className="text-xs sm:text-sm font-medium">Author *</Label>
                     <Input
                       id="author"
                       placeholder="Author name"
                       value={formData.author}
                       onChange={(e) => handleInputChange("author", e.target.value)}
-                      className="admin-input h-10 sm:h-11"
+                      className="admin-input h-9 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="designation" className="text-sm font-medium">Designation *</Label>
+                  <div className="space-y-1 sm:space-y-2">
+                    <Label htmlFor="designation" className="text-xs sm:text-sm font-medium">Designation *</Label>
                     <Input
                       id="designation"
                       placeholder="Author designation"
                       value={formData.designation}
                       onChange={(e) => handleInputChange("designation", e.target.value)}
-                      className="admin-input h-10 sm:h-11"
+                      className="admin-input h-9 sm:h-11 text-sm sm:text-base"
                       required
                     />
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Article Content Sections */}
+              {/* Article Content Sections Card */}
               <Card className="admin-card">
                 <CardHeader className="px-4 sm:px-6">
                   <div className="flex justify-between items-center">
@@ -459,32 +488,32 @@ const EditArticle = () => {
                 </CardContent>
               </Card>
 
-              {/* Images */}
-              <Card className="admin-card">
+              {/* Images Card */}
+              <Card className="admin-card shadow-sm">
                 <CardHeader className="px-4 sm:px-6">
                   <CardTitle className="text-lg sm:text-xl">Images</CardTitle>
                   <CardDescription className="text-sm">
                     Upload images or add image URLs for your article
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="px-4 sm:px-6">
-                  <div className="space-y-4">
+                <CardContent className="px-3 sm:px-6 py-3 sm:py-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Image URL Input */}
-                    <div className="space-y-2">
-                      <Label htmlFor="image-url" className="text-sm font-medium">Add Image by URL</Label>
+                    <div className="space-y-1 sm:space-y-2">
+                      <Label htmlFor="image-url" className="text-xs sm:text-sm font-medium">Add Image by URL</Label>
                       <div className="flex gap-2">
                         <Input
                           id="image-url"
                           placeholder="https://example.com/image.jpg"
                           value={imageUrl}
                           onChange={(e) => setImageUrl(e.target.value)}
-                          className="admin-input flex-1"
+                          className="admin-input flex-1 h-9 sm:h-11 text-sm"
                         />
                         <Button 
                           type="button" 
                           onClick={addImageByUrl} 
                           variant="outline"
-                          className="shrink-0"
+                          className="shrink-0 h-9 sm:h-11 text-xs sm:text-sm"
                         >
                           Add Image
                         </Button>
@@ -492,13 +521,13 @@ const EditArticle = () => {
                     </div>
                     
                     {formData.images.length > 0 && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
                         {formData.images.map((image, index) => (
                           <div key={index} className="relative">
                             <img
                               src={image}
                               alt={`Image ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg border"
+                              className="w-full h-24 sm:h-32 object-cover rounded-lg border"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Image+Error';
                               }}
@@ -507,17 +536,17 @@ const EditArticle = () => {
                               type="button"
                               variant="destructive"
                               size="sm"
-                              className="absolute top-2 right-2"
+                              className="absolute top-1 right-1 sm:top-2 sm:right-2 h-7 w-7 sm:h-8 sm:w-8 p-0"
                               onClick={() => removeImage(index)}
                             >
-                              <X className="w-4 h-4" />
+                              <X className="w-3 h-3 sm:w-4 sm:h-4" />
                             </Button>
                           </div>
                         ))}
                       </div>
                     )}
                     
-                    {/* Existing upload functionality */}
+                    {/* Image upload area */}
                     <Label
                       htmlFor="image-upload"
                       className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
@@ -545,7 +574,7 @@ const EditArticle = () => {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-3 sm:space-y-6">
               {/* Keywords/Tags */}
               <Card className="admin-card">
                 <CardHeader className="px-4 sm:px-6">
@@ -584,10 +613,10 @@ const EditArticle = () => {
               </Card>
 
               {/* Action Buttons */}
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3 fixed bottom-0 left-0 right-0 lg:relative bg-background p-3 sm:p-0 shadow-lg lg:shadow-none z-10">
                 <Button
                   type="submit"
-                  className="admin-button-primary w-full h-10 sm:h-11"
+                  className="admin-button-primary w-full h-10 sm:h-11 text-sm"
                   disabled={
                     isLoading || 
                     !formData.title || 
@@ -602,7 +631,7 @@ const EditArticle = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full h-10 sm:h-11"
+                  className="w-full h-10 sm:h-11 text-sm"
                   onClick={() => {
                     toast({
                       title: "Preview mode",
@@ -615,26 +644,8 @@ const EditArticle = () => {
                 </Button>
               </div>
 
-              {/* Form validation info */}
-              <Card className="admin-card bg-muted/30">
-                <CardContent className="px-4 py-4 sm:px-6">
-                  <h4 className="font-medium mb-2">Required fields:</h4>
-                  <ul className="text-sm space-y-1">
-                    <li className={formData.title ? "text-green-600" : "text-muted-foreground"}>
-                      • Title
-                    </li>
-                    <li className={formData.subtitle ? "text-green-600" : "text-muted-foreground"}>
-                      • Subtitle
-                    </li>
-                    <li className={formData.author ? "text-green-600" : "text-muted-foreground"}>
-                      • Author
-                    </li>
-                    <li className={formData.designation ? "text-green-600" : "text-muted-foreground"}>
-                      • Designation
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
+              {/* Add some spacing at the bottom on mobile to accommodate fixed buttons */}
+              <div className="h-24 lg:h-0 block lg:hidden"></div>
             </div>
           </div>
         </form>
@@ -644,3 +655,4 @@ const EditArticle = () => {
 };
 
 export default EditArticle;
+

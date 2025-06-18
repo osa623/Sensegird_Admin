@@ -1,7 +1,28 @@
 const express = require('express');
 const router = express.Router();
 const Article = require('../models/articleModel');
+const cors = require('cors');
 
+// Configure CORS options - apply before defining routes
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests from your frontend origin
+    // In development, this might be localhost:8081
+    const allowedOrigins = ['http://localhost:8081', 'http://localhost:3000'];
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Apply CORS middleware to the router
+router.use(cors(corsOptions));
 
 // Get all articles
 router.get('/', async (req, res) => {
@@ -117,13 +138,46 @@ router.delete('/:id', async (req, res) => {
     let article = await Article.findOne({ articleid: req.params.id });
     if (!article) return res.status(404).json({ msg: 'Article not found' });
     
-    // Delete article
-    await Article.findOneAndRemove({ articleid: req.params.id });
+    // Delete article using a supported method
+    await Article.findOneAndDelete({ articleid: req.params.id });
     
-    res.json({ msg: 'Article removed' });
+    console.log(`Successfully deleted article with ID: ${req.params.id}`);
+    res.json({ msg: 'Article removed', success: true });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error('Error deleting article:', err.message);
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ 
+      msg: 'Server Error',
+      error: err.message,
+      success: false
+    });
+  }
+});
+
+// Alternative route for article deletion
+router.post('/remove', async (req, res) => {
+  try {
+    const { articleId } = req.body;
+    if (!articleId) {
+      return res.status(400).json({ msg: 'Article ID is required' });
+    }
+    
+    // Find article by ID
+    let article = await Article.findOne({ articleid: articleId });
+    if (!article) return res.status(404).json({ msg: 'Article not found' });
+    
+    // Delete the article
+    await article.deleteOne();
+    
+    console.log(`Successfully deleted article with ID: ${articleId} using alternative method`);
+    res.json({ msg: 'Article removed using alternative method', success: true });
+  } catch (err) {
+    console.error('Error in alternative delete route:', err.message);
+    res.status(500).json({
+      msg: 'Server Error',
+      error: err.message,
+      success: false
+    });
   }
 });
 

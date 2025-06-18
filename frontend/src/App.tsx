@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "./lib/firebase";
 import LoginPage from "./pages/LoginPage";
@@ -31,15 +31,84 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   setUser: (user: User | null) => void;
+  logout: () => Promise<void>;
 }
 
 // Create the auth context
-const AuthContext = createContext<AuthContextType>({
+const AuthContext = createContext<{
+  isAuthenticated: boolean;
+  setIsAuthenticated: (value: boolean) => void;
+  user: User | null;
+  setUser: (user: User | null) => void;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+}>({
   isAuthenticated: false,
+  setIsAuthenticated: () => {},
   user: null,
-  loading: true,
-  setUser: () => {}
+  setUser: () => {},
+  login: async () => {},
+  logout: async () => {},
 });
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser({
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName,
+          email: firebaseUser.email,
+          photoURL: firebaseUser.photoURL,
+        });
+        setIsAuthenticated(true);
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const logout = async () => {
+    try {
+      // Make API call to logout endpoint if you have one
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error during logout:", error);
+      return Promise.reject(error);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      setIsAuthenticated, 
+      user, 
+      setUser,
+      login: async () => {}, // Implement your login function here
+      logout
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -58,35 +127,11 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 const App = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser({
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName,
-          email: firebaseUser.email,
-          photoURL: firebaseUser.photoURL,
-        });
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
-    
-    return () => unsubscribe();
-  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider value={{ 
-        isAuthenticated: !!user, 
-        user, 
-        loading,
-        setUser 
-      }}>
+      <AuthProvider>
         <TooltipProvider>
           <Sonner />
           <BrowserRouter>
@@ -135,7 +180,7 @@ const App = () => {
             <Toaster />
           </BrowserRouter>
         </TooltipProvider>
-      </AuthContext.Provider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };
