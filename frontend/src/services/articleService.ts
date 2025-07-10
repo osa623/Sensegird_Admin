@@ -12,6 +12,7 @@ export interface Article {
   author: string;
   designation: string;
   keywords: string[];
+  status: 'draft' | 'published' | 'archived';
 }
 
 export interface CreateArticleDTO {
@@ -23,6 +24,7 @@ export interface CreateArticleDTO {
   author: string;
   designation: string;
   keywords: string[];
+  status?: 'draft' | 'published' | 'archived';
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -34,7 +36,8 @@ export const createArticle = async (articleData: CreateArticleDTO): Promise<Arti
     const articleWithId = {
       ...articleData,
       articleid: uuidv4(),
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      status: articleData.status || 'draft'
     };
 
     console.log("Sending article data:", articleWithId);
@@ -285,6 +288,51 @@ export const deleteArticle = async (id: string): Promise<{ success: boolean, mes
   }
 };
 
+// Function to get articles by status
+export const getArticlesByStatus = async (status: 'draft' | 'published' | 'archived'): Promise<Article[]> => {
+  try {
+    const response = await fetch(`${API_URL}/articles/status/${status}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching articles by status:', error);
+    throw error;
+  }
+};
+
+// Function to update article status
+export const updateArticleStatus = async (id: string, status: 'draft' | 'published' | 'archived'): Promise<Article> => {
+  try {
+    const response = await fetch(`${API_URL}/articles/${id}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating article status:', error);
+    throw error;
+  }
+};
+
 // Helper function to normalize article data structure
 export const normalizeArticleData = (data: any): Article => {
   // Handle different API response structures
@@ -300,7 +348,8 @@ export const normalizeArticleData = (data: any): Article => {
     author: article.author || "",
     designation: article.designation || "",
     keywords: Array.isArray(article.keywords) ? article.keywords : [],
-    date: article.date || new Date().toISOString()
+    date: article.date || new Date().toISOString(),
+    status: article.status || 'draft'
   };
 };
 
@@ -320,6 +369,7 @@ export const getMockArticle = (id: string): Article => {
     author: "Test Author",
     designation: "Developer",
     keywords: ["test", "mock", "development"],
-    date: new Date().toISOString()
+    date: new Date().toISOString(),
+    status: 'draft'
   };
 };

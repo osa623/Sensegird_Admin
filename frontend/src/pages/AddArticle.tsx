@@ -30,6 +30,7 @@ interface CreateArticleDTO {
   author: string;
   designation: string;
   keywords: string[];
+  status: "draft" | "published" | "archived";
 }
 
 interface Article extends CreateArticleDTO {
@@ -46,6 +47,7 @@ interface ArticleForm {
   author: string;
   designation: string;
   keywords: string[];
+  status: "draft" | "published" | "archived";
   // For UI purpose only - not part of the model
   currentKeyword: string;
 }
@@ -93,8 +95,9 @@ const AddArticle = () => {
     subtopics: [],
     subcontent: [],
     author: user?.name || "",
-    designation: "", // Default designation
+    designation: "",
     keywords: [],
+    status: "draft",
     currentKeyword: "",
   });
 
@@ -234,7 +237,8 @@ const AddArticle = () => {
         subcontent: formData.subcontent,
         author: formData.author,
         designation: formData.designation,
-        keywords: formData.keywords
+        keywords: formData.keywords,
+        status: formData.status
       };
       
       console.log("Submitting article:", articleData);
@@ -549,6 +553,36 @@ const AddArticle = () => {
               </CardContent>
             </Card>
 
+           {/* Status Changer */}
+            <Card className="admin-card">
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="text-lg sm:text-xl">Publication Status</CardTitle>
+                <CardDescription className="text-sm">
+                  Set whether this article is a draft, published, or archived
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 px-4 sm:px-6">
+                <div className="grid grid-cols-1 gap-2">
+                  <select
+                    value={formData.status}
+                    onChange={(e) => handleInputChange("status", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formData.status === "draft" 
+                    ? "Draft articles are only visible to you and won't appear on the website."
+                    : formData.status === "published"
+                    ? "Published articles will be visible to all visitors on the website."
+                    : "Archived articles are hidden from the website but preserved in the system."}
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Action Buttons */}
             <div className="space-y-3">
               <Button
@@ -563,7 +597,7 @@ const AddArticle = () => {
                 }
               >
                 <Save className="w-4 h-4 mr-2" />
-                {isLoading ? "Publishing..." : "Publish Article"}
+                {isLoading ? "Saving..." : `Save as ${formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}`}
               </Button>
               <Button
                 type="button"
@@ -598,6 +632,9 @@ const AddArticle = () => {
                   <li className={formData.designation ? "text-green-600" : "text-muted-foreground"}>
                     • Designation
                   </li>
+                  <li className="text-blue-600">
+                    • Status: {formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}
+                  </li>
                 </ul>
               </CardContent>
             </Card>
@@ -607,5 +644,6 @@ const AddArticle = () => {
     </div>
   );
 };
+
 
 export default AddArticle;

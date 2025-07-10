@@ -27,8 +27,61 @@ router.use(cors(corsOptions));
 // Get all articles
 router.get('/', async (req, res) => {
   try {
-    const articles = await Article.find().sort({ date: -1 });
+    const { status } = req.query;
+    let filter = {};
+    
+    // Filter by status if provided
+    if (status && ['draft', 'published', 'archived'].includes(status)) {
+      filter.status = status;
+    }
+    
+    const articles = await Article.find(filter).sort({ date: -1 });
     res.json(articles);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Get articles by status
+router.get('/status/:status', async (req, res) => {
+  try {
+    const { status } = req.params;
+    
+    // Validate status
+    if (!['draft', 'published', 'archived'].includes(status)) {
+      return res.status(400).json({ msg: 'Invalid status. Must be draft, published, or archived' });
+    }
+    
+    const articles = await Article.find({ status }).sort({ date: -1 });
+    res.json(articles);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Update article status
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    // Validate status
+    if (!['draft', 'published', 'archived'].includes(status)) {
+      return res.status(400).json({ msg: 'Invalid status. Must be draft, published, or archived' });
+    }
+    
+    // Find and update article status
+    let article = await Article.findOne({ articleid: req.params.id });
+    if (!article) return res.status(404).json({ msg: 'Article not found' });
+    
+    article = await Article.findOneAndUpdate(
+      { articleid: req.params.id },
+      { $set: { status } },
+      { new: true }
+    );
+    
+    res.json(article);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -55,6 +108,7 @@ router.post('/', async (req, res) => {
       title,
       subtitle,
       images,
+      status,
       subtopics,
       subcontent,
       author,
@@ -74,6 +128,7 @@ router.post('/', async (req, res) => {
       title,
       subtitle,
       images,
+      status,
       subtopics,
       subcontent,
       author,
@@ -96,6 +151,7 @@ router.put('/:id',  async (req, res) => {
       title,
       subtitle,
       images,
+      status,
       subtopics,
       subcontent,
       author,
@@ -108,6 +164,7 @@ router.put('/:id',  async (req, res) => {
     if (title) articleFields.title = title;
     if (subtitle) articleFields.subtitle = subtitle;
     if (images) articleFields.images = images;
+    if (status) articleFields.status = status;
     if (subtopics) articleFields.subtopics = subtopics;
     if (subcontent) articleFields.subcontent = subcontent;
     if (author) articleFields.author = author;

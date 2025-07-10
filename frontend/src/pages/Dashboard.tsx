@@ -36,13 +36,15 @@ interface Article {
   articleid: string;
   title: string;
   subtitle: string;
-  content: string;
   author: string;
-  publishedDate: string;
-  status: 'published' | 'draft';
-  category: string;
-  date: string; // Added for compatibility with existing code
-  views: number; // Added for view count
+  date: string;
+  status: 'draft' | 'published' | 'archived';
+  images: string[];
+  subtopics: string[];
+  subcontent: string[];
+  designation: string;
+  keywords: string[];
+  views?: number; // Optional for backward compatibility
 }
 
 const Dashboard = () => {
@@ -76,22 +78,22 @@ const Dashboard = () => {
         setError(null);
       } catch (err: any) {
         console.error('Error fetching articles:', err);
-        // More descriptive error message including the error details
         setError(`Failed to fetch articles: ${err.message || 'Unknown error'}`);
         
         console.log('Using mock data as fallback');
-        // Use mock data for demonstration if API fails
         setArticles([
           {
             articleid: "1",
             title: "Sample Article",
             subtitle: "This is a sample article",
-            content: "Sample content",
             author: "Admin",
-            publishedDate: "2023-08-15",
-            status: "published",
-            category: "Technology",
             date: "2023-08-15",
+            status: "published",
+            images: [],
+            subtopics: ["Introduction"],
+            subcontent: ["Sample content"],
+            designation: "Administrator",
+            keywords: ["sample", "test"],
             views: 120
           }
         ]);
@@ -261,13 +263,13 @@ const Dashboard = () => {
                           {article.title}
                         </div>
                         <div className="sm:hidden text-[10px] text-muted-foreground mt-1">
-                          {article.category} • {new Date(article.date).toLocaleDateString()}
+                          {article.status} • {new Date(article.date).toLocaleDateString()}
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-xs sm:text-sm">{article.author}</TableCell>
                       <TableCell className="py-2 px-2 sm:px-4">
                         <Badge className={`${getStatusColor(article.status)} text-[10px] sm:text-xs py-0.5 px-1.5 sm:px-2`}>
-                          {article.subtitle}
+                          {article.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-xs sm:text-sm">

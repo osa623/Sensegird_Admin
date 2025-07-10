@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { deleteArticle } from '../services/articleService';
+import { deleteArticle, getArticlesByStatus, updateArticleStatus } from '../services/articleService';
 
 // Define interface for article data
 interface Article {
   articleid: string;
   title: string;
   subtitle: string;
-  content: string;
   author: string;
-  publishedDate: string;
-  status: 'published' | 'draft';
+  date: string;
+  status: 'draft' | 'published' | 'archived';
+  images: string[];
+  subtopics: string[];
+  subcontent: string[];
+  designation: string;
+  keywords: string[];
 }
 
 const ManageArticles: React.FC = () => {
@@ -23,6 +27,7 @@ const ManageArticles: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published' | 'archived'>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const [articleToDelete, setArticleToDelete] = useState<string | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error' | 'warning'} | null>(null);
@@ -33,11 +38,9 @@ const ManageArticles: React.FC = () => {
     console.log('Fetching articles...'); // Debug log
     setLoading(true);
     try {
-      // Use hardcoded API URL instead of process.env which isn't available in the browser
       const apiUrl = '/api/articles';
       console.log(`Calling API endpoint: ${apiUrl}`);
       
-      // Add timeout to prevent hanging requests
       const response = await axios.get(apiUrl, { 
         timeout: 10000,
         headers: {
@@ -54,34 +57,32 @@ const ManageArticles: React.FC = () => {
       setError(`Failed to fetch articles: ${err.message || 'Unknown error'}`);
       
       console.log('Using mock data as fallback');
-      // Use mock data for demonstration if API fails
       setArticles([
         {
           articleid: '1',
           title: 'Introduction to Smart Grid Technology',
           subtitle: 'Understanding the basics of modern energy systems',
-          content: 'Smart grid technology represents the evolution of traditional power grids...',
           author: 'Jane Smith',
-          publishedDate: '2023-05-15T10:30:00Z',
-          status: 'published'
+          date: '2023-05-15T10:30:00Z',
+          status: 'published',
+          images: [],
+          subtopics: ['Introduction', 'Benefits'],
+          subcontent: ['Smart grid technology represents...', 'The benefits include...'],
+          designation: 'Energy Specialist',
+          keywords: ['smart grid', 'energy', 'technology']
         },
         {
           articleid: '2',
           title: 'Energy Efficiency in Industrial Applications',
           subtitle: 'How factories are reducing energy consumption',
-          content: 'Modern industrial facilities are increasingly adopting energy-efficient practices...',
           author: 'John Doe',
-          publishedDate: '2023-06-22T14:45:00Z',
-          status: 'published'
-        },
-        {
-          articleid: '3',
-          title: 'Renewable Integration Challenges',
-          subtitle: 'Overcoming hurdles in renewable energy adoption',
-          content: 'While renewable energy sources offer numerous benefits, their integration presents challenges...',
-          author: 'Alex Johnson',
-          publishedDate: '2023-07-10T09:15:00Z',
-          status: 'draft'
+          date: '2023-06-22T14:45:00Z',
+          status: 'draft',
+          images: [],
+          subtopics: ['Industrial Practices', 'Case Studies'],
+          subcontent: ['Modern industrial facilities...', 'Case study 1 shows...'],
+          designation: 'Industrial Engineer',
+          keywords: ['energy efficiency', 'industrial', 'manufacturing']
         }
       ]);
     } finally {
@@ -95,11 +96,32 @@ const ManageArticles: React.FC = () => {
     console.log('ManageArticles useEffect triggered');
     fetchArticles();
     
-    // Return cleanup function
     return () => {
       console.log('ManageArticles unmounting');
     };
   }, []);
+
+  // Handle status change
+  const handleStatusChange = async (id: string, newStatus: 'draft' | 'published' | 'archived') => {
+    try {
+      const updatedArticle = await updateArticleStatus(id, newStatus);
+      setArticles(prev => prev.map(article => 
+        article.articleid === id 
+          ? { ...article, status: newStatus }
+          : article
+      ));
+      setNotification({ 
+        message: `Article status updated to ${newStatus}`, 
+        type: 'success' 
+      });
+    } catch (error: any) {
+      console.error('Error updating article status:', error);
+      setNotification({ 
+        message: `Failed to update status: ${error.message}`, 
+        type: 'error' 
+      });
+    }
+  };
 
   // Handle article deletion with better error handling for backend issues
   const handleDeleteArticle = async (id: string, retryAttempt: number = 0) => {
@@ -181,6 +203,14 @@ const ManageArticles: React.FC = () => {
     navigate('/edit-article');
   };
 
+  // Filter articles based on search term and status
+  const filteredArticles = articles.filter(article => {
+    const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         article.author.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || article.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   // Mobile article card component
   const MobileArticleCard = ({ article, onEdit, onDelete }: { 
     article: Article, 
@@ -202,17 +232,30 @@ const ManageArticles: React.FC = () => {
           
           <div className="flex justify-between items-center mb-2">
             <p className="text-sm"><span className="font-semibold">Author:</span> {article.author}</p>
-            <span className={`px-2 py-1 text-xs rounded-full font-medium capitalize ${
-              article.status === 'published' 
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-            }`}>
-              {article.status}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-1 text-xs rounded-full font-medium capitalize ${
+                article.status === 'published' 
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                  : article.status === 'draft'
+                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+              }`}>
+                {article.status}
+              </span>
+              <select
+                value={article.status}
+                onChange={(e) => handleStatusChange(article.articleid, e.target.value as 'draft' | 'published' | 'archived')}
+                className="text-xs border rounded px-1 py-0.5"
+              >
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
           </div>
           
           <p className="text-sm mb-4">
-            <span className="font-semibold">Published:</span> {new Date(article?.publishedDate).toLocaleDateString()}
+            <span className="font-semibold">Date:</span> {new Date(article.date).toLocaleDateString()}
           </p>
           
           <div className="flex justify-end gap-2 mt-2">
@@ -282,14 +325,16 @@ const ManageArticles: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:text-white text-sm transition duration-150 ease-in-out"
                 />
               </div>
-              <button
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'draft' | 'published' | 'archived')}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full sm:w-auto h-10"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                Filter
-              </button>
+                <option value="all">All Articles</option>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="archived">Archived</option>
+              </select>
             </div>
 
             {/* Loading state */}
@@ -315,8 +360,8 @@ const ManageArticles: React.FC = () => {
               <>
                 {/* Mobile View (Cards) */}
                 <div className="block md:hidden">
-                  {articles.length > 0 ? (
-                    articles.map((article) => (
+                  {filteredArticles.length > 0 ? (
+                    filteredArticles.map((article) => (
                       <MobileArticleCard 
                         key={article.articleid}
                         article={article}
@@ -345,14 +390,14 @@ const ManageArticles: React.FC = () => {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Summary</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Author</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Published Date</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {articles.length > 0 ? (
-                        articles.map((article) => (
+                      {filteredArticles.length > 0 ? (
+                        filteredArticles.map((article) => (
                           <tr 
                             key={article.articleid}
                             className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-150"
@@ -374,7 +419,7 @@ const ManageArticles: React.FC = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {new Date(article?.publishedDate).toLocaleDateString(undefined, {
+                                {new Date(article.date).toLocaleDateString(undefined, {
                                   year: 'numeric', 
                                   month: 'short', 
                                   day: 'numeric'
@@ -382,13 +427,21 @@ const ManageArticles: React.FC = () => {
                               </p>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${
-                                article.status === 'published' 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                              }`}>
-                                {article.status}
-                              </span>
+                              <select
+                                value={article.status}
+                                onChange={(e) => handleStatusChange(article.articleid, e.target.value as 'draft' | 'published' | 'archived')}
+                                className={`px-2 py-1 text-xs leading-5 font-semibold rounded-full capitalize border-0 ${
+                                  article.status === 'published' 
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                                    : article.status === 'draft'
+                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                                }`}
+                              >
+                                <option value="draft">Draft</option>
+                                <option value="published">Published</option>
+                                <option value="archived">Archived</option>
+                              </select>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex gap-2">
@@ -439,7 +492,7 @@ const ManageArticles: React.FC = () => {
         {import.meta.env?.DEV && (
           <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg p-4">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Debug: {loading ? 'Loading articles...' : `Loaded ${articles.length} articles`}
+              Debug: {loading ? 'Loading articles...' : `Loaded ${filteredArticles.length} articles (${statusFilter})`}
             </p>
           </div>
         )}

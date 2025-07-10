@@ -36,6 +36,7 @@ interface ArticleForm {
   author: string;
   designation: string;
   keywords: string[];
+  status: 'draft' | 'published' | 'archived';
   // For UI purpose only - not part of the model
   currentKeyword: string;
 }
@@ -87,6 +88,7 @@ const EditArticle = () => {
     author: user?.name || "",
     designation: "",
     keywords: [],
+    status: 'draft',
     currentKeyword: "",
   });
 
@@ -117,13 +119,12 @@ const EditArticle = () => {
             title: article.title || "",
             subtitle: article.subtitle || "",
             images: Array.isArray(article.images) ? article.images : [],
-            subtopics: Array.isArray(article.subtopics) ? article.subtopics : 
-                      (article.content ? [article.content] : []),  // Fallback to content field if subtopics missing
-            subcontent: Array.isArray(article.subcontent) ? article.subcontent : 
-                       (article.content ? [article.content] : []), // Fallback to content field if subcontent missing
+            subtopics: Array.isArray(article.subtopics) ? article.subtopics : [],
+            subcontent: Array.isArray(article.subcontent) ? article.subcontent : [],
             author: article.author || user?.name || "",
             designation: article.designation || "",
             keywords: Array.isArray(article.keywords) ? article.keywords : [],
+            status: article.status || 'draft',
             currentKeyword: "",
           });
           setIsFetchingArticle(false);
@@ -288,7 +289,8 @@ const EditArticle = () => {
         subcontent: formData.subcontent,
         author: formData.author,
         designation: formData.designation,
-        keywords: formData.keywords
+        keywords: formData.keywords,
+        status: formData.status
       };
       
       console.log(`${isEditMode ? "Updating" : "Creating"} article:`, articleData);
@@ -575,7 +577,7 @@ const EditArticle = () => {
 
             {/* Sidebar */}
             <div className="space-y-3 sm:space-y-6">
-              {/* Keywords/Tags */}
+              {/* Keywords Card */}
               <Card className="admin-card">
                 <CardHeader className="px-4 sm:px-6">
                   <CardTitle className="text-lg sm:text-xl">Keywords</CardTitle>
@@ -609,6 +611,36 @@ const EditArticle = () => {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Status Card */}
+              <Card className="admin-card">
+                <CardHeader className="px-4 sm:px-6">
+                  <CardTitle className="text-lg sm:text-xl">Publication Status</CardTitle>
+                  <CardDescription className="text-sm">
+                    Set the current status of this article
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 px-4 sm:px-6">
+                  <div className="grid grid-cols-1 gap-2">
+                    <select
+                      value={formData.status}
+                      onChange={(e) => handleInputChange("status", e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {formData.status === 'draft' 
+                      ? "Draft articles are only visible to you and won't appear on the website."
+                      : formData.status === 'published'
+                      ? "Published articles will be visible to all visitors on the website."
+                      : "Archived articles are hidden from the website but preserved in the system."}
+                  </p>
                 </CardContent>
               </Card>
 

@@ -14,6 +14,12 @@ const articleSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  status: {
+    type: String,
+    enum: ['draft', 'published', 'archived'],
+    default: 'draft',
+    index: true
+  },
   subtitle: {
     type: String,
     required: true
@@ -45,6 +51,9 @@ const articleSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Add compound index for better query performance
+articleSchema.index({ status: 1, date: -1 });
 
 const Article = mongoose.model('Article', articleSchema);
 
