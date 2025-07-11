@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,29 +31,21 @@ const ForgotPasswordPage = () => {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
-      await sendPasswordResetEmail(auth, data.email);
+      // TODO: Implement password reset API call
+      // For now, just simulate the process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       setIsEmailSent(true);
       toast({
         title: "Reset email sent",
-        description: "Check your inbox for password reset instructions.",
+        description: "If an account exists with this email, you'll receive reset instructions.",
       });
     } catch (error: any) {
-      let errorMessage = "An error occurred. Please try again.";
-      
-      if (error.code === 'auth/user-not-found') {
-        // Don't reveal if email doesn't exist for security reasons
-        setIsEmailSent(true); // Still show success UI even if user not found
-        toast({
-          title: "Reset email sent",
-          description: "If an account exists with this email, you'll receive reset instructions.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: errorMessage,
-        });
-      }
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An error occurred. Please try again.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -125,5 +115,6 @@ const ForgotPasswordPage = () => {
     </div>
   );
 };
+
 
 export default ForgotPasswordPage;

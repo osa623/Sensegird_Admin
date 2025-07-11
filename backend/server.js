@@ -1,34 +1,41 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
 const cors = require('cors');
-
-// Load environment variables
-dotenv.config();
-
-// Import routes
-const articleRoutes = require('./routes/articleRoutes');
+require('dotenv').config();
 
 // Initialize express app
 const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Routes
-app.use('/api/articles', articleRoutes);
-
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_DB)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('Could not connect to MongoDB', err));
-
-// Port configuration
 const PORT = process.env.PORT || 5000;
 
-// Start server
+// CORS configuration
+const corsOptions = {
+  origin: ['http://localhost:8081', 'http://localhost:3000', 'http://localhost:5173'],
+  credentials: true,
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+// Middleware
+app.use(cors(corsOptions));
+app.use(express.json());
+
+// Routes
+app.use('/api/articles', require('./routes/articleRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
+
+// Basic route
+app.get('/', (req, res) => {
+  res.json({ message: 'SensGrid Admin API' });
+});
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/sensgrid', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.log(err));
+
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

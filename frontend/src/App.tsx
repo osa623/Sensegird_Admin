@@ -4,8 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { auth } from "./lib/firebase";
+import { authAPI } from "./lib/auth";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -18,20 +17,10 @@ import ManageArticles from "./pages/ManageArticles";
 
 const queryClient = new QueryClient();
 
-// Auth context for demo purposes
 interface User {
-  uid: string;
-  name: string | null;
-  email: string | null;
-  photoURL?: string | null;
-}
-
-interface AuthContextType {
-  isAuthenticated: boolean;
-  user: User | null;
-  loading: boolean;
-  setUser: (user: User | null) => void;
-  logout: () => Promise<void>;
+  id: string;
+  username: string;
+  email: string;
 }
 
 // Create the auth context
@@ -42,6 +31,7 @@ const AuthContext = createContext<{
   setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  loading: boolean;
 }>({
   isAuthenticated: false,
   setIsAuthenticated: () => {},
@@ -49,6 +39,7 @@ const AuthContext = createContext<{
   setUser: () => {},
   login: async () => {},
   logout: async () => {},
+  loading: false,
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -57,42 +48,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser({
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName,
-          email: firebaseUser.email,
-          photoURL: firebaseUser.photoURL,
-        });
-        setIsAuthenticated(true);
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
+    const checkAuth = async () => {
+      const token = localStorage.getItem('auth_token');
+      const userData = localStorage.getItem('user_data');
+      
+      if (token && userData) {
+        try {
+          const parsedUser = JSON.parse(userData);
+          // Verify token is still valid
+          await authAPI.getCurrentUser();
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+        } catch (error) {
+          // Token is invalid, clear storage
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
+        }
       }
       setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    checkAuth();
   }, []);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await authAPI.login(email, password);
+      localStorage.setItem('auth_token', response.token);
+      localStorage.setItem('user_data', JSON.stringify(response.user));
+      setUser(response.user);
+      setIsAuthenticated(true);
+    } catch (error) {
+      throw error;
+    }
+  };
 
   const logout = async () => {
     try {
-      // Make API call to logout endpoint if you have one
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-      }
-      return Promise.resolve();
+      await authAPI.logout();
+      setUser(null);
+      setIsAuthenticated(false);
     } catch (error) {
       console.error("Error during logout:", error);
-      return Promise.reject(error);
+      // Clear local state even if API call fails
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      setUser(null);
+      setIsAuthenticated(false);
     }
   };
 
@@ -102,8 +104,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated, 
       user, 
       setUser,
-      login: async () => {}, // Implement your login function here
-      logout
+      login,
+      logout,
+      loading
     }}>
       {children}
     </AuthContext.Provider>
@@ -127,8 +130,6 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 const App = () => {
-  
-
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -136,7 +137,6 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Public routes */}
               <Route path="/" element={
                 <ProtectedRoute>
                   <AdminLayout>
@@ -148,7 +148,6 @@ const App = () => {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               
-              {/* Admin routes */}
               <Route path="/dashboard" element={
                 <Navigate to="/" replace />
               } />
@@ -174,7 +173,6 @@ const App = () => {
                 </ProtectedRoute>
               } />
               
-              {/* Not found */}
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />

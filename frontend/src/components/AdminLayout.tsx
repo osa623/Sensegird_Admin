@@ -61,24 +61,10 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   const handleLogout = async () => {
     try {
-      // Call the logout function from auth context
       await logout();
-      
-      // Clear any localStorage items
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
-      
-      // Clear authentication state
-      setIsAuthenticated(false);
-      setUser(null);
-      
-      // Redirect to login
       navigate("/login", { replace: true });
     } catch (error) {
       console.error("Logout failed:", error);
-      // Still clear local state even if API call fails
-      setIsAuthenticated(false);
-      setUser(null);
       navigate("/login", { replace: true });
     }
   };
@@ -225,7 +211,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user?.name || 'Admin User'}</p>
+                      <p className="text-sm font-medium leading-none">{user?.username || 'Admin User'}</p>
                       <p className="text-xs leading-none text-muted-foreground">
                         {user?.email || 'admin@example.com'}
                       </p>

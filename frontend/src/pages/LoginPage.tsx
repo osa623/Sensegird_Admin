@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { useAuth } from "../App";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,6 +21,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const LoginPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -36,22 +36,17 @@ const LoginPage = () => {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, data.email, data.password);
+      await login(data.email, data.password);
       toast({
         title: "Login successful",
         description: "You have been logged in successfully.",
       });
       navigate("/dashboard");
     } catch (error: any) {
-      const errorMessage =
-        error.code === "auth/invalid-credential"
-          ? "Invalid email or password. Please try again."
-          : "An error occurred. Please try again.";
-
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: errorMessage,
+        description: error.message || "Invalid email or password. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -158,5 +153,6 @@ const LoginPage = () => {
     </div>
   );
 };
+
 
 export default LoginPage;

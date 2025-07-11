@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { useAuth } from "../App";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,9 +10,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { authAPI } from "@/lib/auth";
 
 const registerSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
@@ -27,6 +27,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const RegisterPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setUser, setIsAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -34,7 +35,7 @@ const RegisterPage = () => {
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      name: "",
+      username: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -44,12 +45,12 @@ const RegisterPage = () => {
   const onSubmit = async (data: RegisterFormValues) => {
     setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const response = await authAPI.register(data.username, data.email, data.password);
       
-      // Set the user's display name
-      await updateProfile(userCredential.user, {
-        displayName: data.name,
-      });
+      localStorage.setItem('auth_token', response.token);
+      localStorage.setItem('user_data', JSON.stringify(response.user));
+      setUser(response.user);
+      setIsAuthenticated(true);
 
       toast({
         title: "Registration successful",
@@ -57,24 +58,10 @@ const RegisterPage = () => {
       });
       navigate("/dashboard");
     } catch (error: any) {
-      let errorMessage = "An error occurred. Please try again.";
-      
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          errorMessage = "This email is already registered. Please sign in instead.";
-          break;
-        case 'auth/invalid-email':
-          errorMessage = "Invalid email address format.";
-          break;
-        case 'auth/weak-password':
-          errorMessage = "Password is too weak. Please use a stronger password.";
-          break;
-      }
-      
       toast({
         variant: "destructive",
         title: "Registration failed",
-        description: errorMessage,
+        description: error.message || "An error occurred. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -93,12 +80,12 @@ const RegisterPage = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="name"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="Your Name" {...field} disabled={isLoading} />
+                      <Input placeholder="Your Username" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -202,3 +189,4 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
+         
