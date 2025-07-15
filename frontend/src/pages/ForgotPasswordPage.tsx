@@ -40,7 +40,7 @@ const ForgotPasswordPage = () => {
         title: "Reset email sent",
         description: "If an account exists with this email, you'll receive reset instructions.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: "destructive",
         title: "Error",

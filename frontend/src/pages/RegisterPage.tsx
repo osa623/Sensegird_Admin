@@ -57,11 +57,16 @@ const RegisterPage = () => {
         description: "Your account has been created successfully.",
       });
       navigate("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      let errorMessage = "An error occurred. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         variant: "destructive",
         title: "Registration failed",
-        description: error.message || "An error occurred. Please try again.",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
